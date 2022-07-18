@@ -1,5 +1,6 @@
 package fr.pantheonsorbonne.cri;
 
+import org.apache.maven.model.ConfigurationContainer;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.model.PluginExecution;
 import org.apache.maven.model.io.xpp3.MavenXpp3Writer;
@@ -50,7 +51,7 @@ class DextormEnforcerPluginMojo extends AbstractMojo {
         }
 
         Plugin surefirePlugin = new Plugin();
-        customizePlugin(surefirePlugin, "org.apache.maven.plugins", "maven-surefire-plugin", "3.0.0-M7", "test", "test", "test", "<configuration><argLine>@{surefireArgLine}</argLine></configuration>");
+        customizePlugin(surefirePlugin, "org.apache.maven.plugins", "maven-surefire-plugin", "2.22.0", "test", "test", "test", "<configuration><argLine>@{surefireArgLine}</argLine></configuration>", false);
         this.project.getBuild().getPlugins().add(surefirePlugin);
         try {
             Plugin jacocoplugin = this.project.getBuild().getPlugins().stream().filter(p -> p.getArtifactId().equals("jacoco-maven-plugin")).findFirst().orElseThrow(() -> new NoSuchPluginException());
@@ -60,8 +61,8 @@ class DextormEnforcerPluginMojo extends AbstractMojo {
 
 
             Plugin jacocoPlugin = new Plugin();
-            customizePlugin(jacocoPlugin, JACOCO_GROUP_ID, JACOCO_ARTIFACT_ID, JACOCO_VERSION, JACOCO_EXECUTION_ID, JACOCO_EXECUTION_GOAL, JACOCO_EXECUTION_PHASE, JACOCO_EXECUTION_CONFIGURATION);
-            customizePlugin(jacocoPlugin, JACOCO_GROUP_ID, JACOCO_ARTIFACT_ID, JACOCO_VERSION, "report", "report", "test", "<configuration><dataFile>${project.build.directory}/coverage-reports/jacoco-ut.exec</dataFile><outputDirectory>${project.reporting.outputDirectory}/jacoco-ut</outputDirectory></configuration>");
+            customizePlugin(jacocoPlugin, JACOCO_GROUP_ID, JACOCO_ARTIFACT_ID, JACOCO_VERSION, JACOCO_EXECUTION_ID, JACOCO_EXECUTION_GOAL, JACOCO_EXECUTION_PHASE, JACOCO_EXECUTION_CONFIGURATION, true);
+            customizePlugin(jacocoPlugin, JACOCO_GROUP_ID, JACOCO_ARTIFACT_ID, JACOCO_VERSION, "report", "report", "test", "<configuration><dataFile>${project.build.directory}/coverage-reports/jacoco-ut.exec</dataFile><outputDirectory>${project.reporting.outputDirectory}/jacoco-ut</outputDirectory></configuration>", true);
             this.project.getBuild().getPlugins().add(jacocoPlugin);
         }
         MavenXpp3Writer writer = new MavenXpp3Writer();
@@ -81,7 +82,7 @@ class DextormEnforcerPluginMojo extends AbstractMojo {
         return this.project.getBuild().getPlugins().stream().filter(p -> p.getArtifactId().equals("maven-surefire-plugin")).findFirst().orElseThrow(() -> new NoSuchPluginException());
     }
 
-    private void customizePlugin(Plugin plugin, String groupId, String artifactId, String version, String id, String e1, String phase, String configuration) {
+    private void customizePlugin(Plugin plugin, String groupId, String artifactId, String version, String id, String e1, String phase, String configuration, boolean confInExecution) {
 
         if (groupId != null)
             plugin.setGroupId(groupId);
@@ -94,7 +95,11 @@ class DextormEnforcerPluginMojo extends AbstractMojo {
         execution.getGoals().add(e1);
         execution.setPhase(phase);
         try {
-            addXMLExecution(execution, configuration);
+            if (confInExecution) {
+                addXMLConfiguration(execution, configuration);
+            } else {
+                addXMLConfiguration(plugin, configuration);
+            }
         } catch (XmlPullParserException e) {
             e.printStackTrace();
         } catch (IOException e) {
@@ -106,8 +111,8 @@ class DextormEnforcerPluginMojo extends AbstractMojo {
 
     }
 
-    private void addXMLExecution(PluginExecution execution, String s) throws XmlPullParserException, IOException {
-        Xpp3Dom configuration = Xpp3DomBuilder.build(new StringReader(s));
-        execution.setConfiguration(configuration);
+    private void addXMLConfiguration(ConfigurationContainer configurationContainer, String configurationStr) throws XmlPullParserException, IOException {
+        Xpp3Dom configuration = Xpp3DomBuilder.build(new StringReader(configurationStr));
+        configurationContainer.setConfiguration(configuration);
     }
 }
